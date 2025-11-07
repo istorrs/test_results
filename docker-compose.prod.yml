@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: test_results_mongodb_prod
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodb_data_prod:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=test_results
+    restart: always
+    networks:
+      - test_results_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: test_results_backend_prod
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    restart: always
+    networks:
+      - test_results_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: test_results_frontend_prod
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - test_results_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: test_results_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: always
+    networks:
+      - test_results_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mongodb_data_prod:
+    driver: local
+
+networks:
+  test_results_network:
+    driver: bridge
